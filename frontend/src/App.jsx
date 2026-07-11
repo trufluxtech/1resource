@@ -4,8 +4,8 @@ import brandLogo from './assets/truflux_logo.png';
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 const APP_NAME = '1Resource';
 const APP_SUBTITLE = 'by Truflux Technologies';
-const APP_VERSION = 'Production 1.15';
-const APP_FOOTER = '1Resource by Truflux Technologies | Version Production 1.15 | © 2026 Truflux Technologies. All rights reserved. | Internal Use Only';
+const APP_VERSION = 'Production 1.17';
+const APP_FOOTER = '1Resource by Truflux Technologies | Version Production 1.17 | © 2026 Truflux Technologies. All rights reserved. | Internal Use Only';
 
 const emptyCandidate = {
   full_name: '', email: '', phone: '', location: '', current_status: 'Available', availability_date: 'Immediate', available_by_date: '', notice_period_days: 0,
@@ -33,7 +33,7 @@ async function api(path, options = {}, token) {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     cache: method === 'GET' ? 'no-store' : 'default',
-    headers: { ...(isForm ? {} : { 'Content-Type': 'application/json' }), ...(method === 'GET' ? { 'Cache-Control': 'no-cache' } : {}), ...authHeaders(token), ...(options.headers || {}) }
+    headers: { ...(isForm ? {} : { 'Content-Type': 'application/json' }), ...authHeaders(token), ...(options.headers || {}) }
   });
   if (!res.ok) {
     let detail = `Request failed: ${res.status}`;
@@ -283,6 +283,26 @@ function MCQGate({ questions, answers, setAnswers, onComplete, loading }) {
 }
 
 
+
+class AppErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, message: '' };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, message: error?.message || 'Unexpected page error' };
+  }
+  componentDidCatch(error, info) {
+    console.error('1Resource page error', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return <div className="loginPage"><div className="loginCard"><BrandLockup tagline="Runtime safety mode" /><h2>Page could not load</h2><p>The application encountered a page rendering issue. Please hard refresh after deployment.</p><div className="error">{this.state.message}</div><button className="primary" onClick={() => { localStorage.removeItem('truflux_auth'); window.location.reload(); }}>Clear session and reload</button><FooterNote centered /></div></div>;
+    }
+    return this.props.children;
+  }
+}
+
 function Login({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -309,7 +329,7 @@ function Login({ onLogin }) {
 
 function Dashboard({ dashboard, onExport, onRefresh, refreshing }) {
   return <section className="pageBlock">
-    <div className="sectionHeader"><div><h2>Dashboard</h2><p>Resource supply, client demand, bench readiness, resume fit and fake-resume risk.</p><small>Last refreshed: {dashboard.refreshed_at || 'Not refreshed yet'} · DB: {dashboard.database || '-'}</small></div><div className="actions"><button onClick={onRefresh} disabled={refreshing}>{refreshing ? 'Refreshing...' : 'Refresh Dashboard'}</button><button onClick={onExport}>Export CSV</button></div></div>
+    <div className="sectionHeader"><div><h2>Dashboard</h2><p>Resource supply, client demand, bench readiness, resume fit and fake-resume risk.</p><small>Last refreshed: {dashboard.refreshed_at || 'Not refreshed yet'} · DB: {dashboard.database || '-'}</small></div><div className="actions"><button onClick={onRefresh} disabled={refreshing}>{refreshing ? 'Refreshing...' : 'Refresh Dashboard'}</button><button onClick={onExport || (() => {})}>Export CSV</button></div></div>
     <div className="statsGrid">
       <StatCard label="Candidates" value={dashboard.total_candidates ?? 0} helper="Profiles in repository" />
       <StatCard label="Ready Supply" value={dashboard.ready_candidates ?? 0} helper="A1 and A2 candidates" />
@@ -1140,10 +1160,13 @@ function App() {
   async function refreshWorkspace(showToast = false) {
     if (!token) return;
     setRefreshingDashboard(true);
-    const results = await Promise.allSettled([loadDashboard(), loadCandidates(), loadDemand(), loadAnalytics(), loadTrends(), loadMarketSignals(), loadCompanyProfile()]);
-    setRefreshingDashboard(false);
-    const failed = results.filter(r => r.status === 'rejected').length;
-    if (showToast) show(failed ? `Dashboard refreshed with ${failed} refresh warning(s)` : 'Dashboard refreshed');
+    try {
+      const results = await Promise.allSettled([loadDashboard(), loadCandidates(), loadDemand(), loadAnalytics(), loadTrends(), loadMarketSignals(), loadCompanyProfile()]);
+      const failed = results.filter(r => r.status === 'rejected').length;
+      if (showToast) show(failed ? `Dashboard refreshed with ${failed} refresh warning(s)` : 'Dashboard refreshed');
+    } finally {
+      setRefreshingDashboard(false);
+    }
   }
   useEffect(() => { loadDashboard(); loadAnalytics(); loadDemand(); loadTrends(); loadMarketSignals(); loadCompanyProfile(); loadCurrentProfile(); loadUserPhoto(); }, [token]);
   useEffect(() => { loadCandidates(); }, [token, filters.q, filters.skill, filters.status, filters.availability]);
@@ -1211,7 +1234,7 @@ function App() {
   ];
   if (user.role === 'Admin' || user.role === 'Recruiter') nav.push(['links', '↗', 'Public Links']);
   if (user.role === 'Admin') { nav.push(['outreach', '✉', 'Outreach']); nav.push(['security', '盾', 'Security']); nav.push(['admin', '⚙', 'Admin']); }
-  return <div className={`appShell ${collapsed ? 'collapsed' : ''}`}><aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}><button className="logo logoButton" type="button" onClick={() => setTab('dashboard')} title="Go to homepage"><img src={brandLogo} alt="Truflux Technologies logo" className="logoImage" /><div><strong>{APP_NAME}</strong><small>{APP_SUBTITLE}</small></div></button><button className="collapseBtn" onClick={toggleMenu}>{collapsed ? '›' : '‹ Collapse'}</button><nav>{nav.map(([key, icon, label]) => <button key={key} title={label} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}><span>{icon}</span><em>{label}</em></button>)}</nav><div className="sideFooter"><strong>{user.full_name}</strong><span>{user.role}</span><span className="sideMeta">Version {APP_VERSION}</span></div></aside><main><header className="topbar"><div><h1>{APP_NAME}</h1><p>{APP_SUBTITLE} · Bench planning, demand capture, candidate screening, resume rating, fake-resume risk and shortlist matching.</p></div><div className="topbarMeta"><span className="pill">Version {APP_VERSION}</span><button className="userTopChip" onClick={() => setTab('profile')} title="Open profile"><Avatar user={currentProfile || user} photoUrl={userPhotoUrl} /><span>{(currentProfile || user)?.full_name || user?.username}</span></button><button className="logoutIcon" onClick={logout} title="Logout" aria-label="Logout">⎋</button></div></header>{tab === 'dashboard' && <Dashboard dashboard={dashboard} onExport={exportCandidates} onRefresh={() => refreshWorkspace(true)} refreshing={refreshingDashboard} />}{tab === 'profile' && <MyProfile user={currentProfile || user} photoUrl={userPhotoUrl} onSave={saveMyProfile} onUploadPhoto={uploadMyPhoto} />}{tab === 'demand' && <DemandPage demand={demand} filters={demandFilters} setFilters={setDemandFilters} onCreate={() => setEditingDemand(emptyDemand)} onSelect={loadSelectedDemand} />}{tab === 'candidates' && <Candidates candidates={candidates} filters={filters} setFilters={setFilters} onCreate={() => setEditing(emptyCandidate)} onSelect={loadSelected} onDownloadStandard={downloadStandardResume} />}{tab === 'intelligence' && <MLAnalytics analytics={analytics} trends={trends} marketSignals={marketSignals} candidates={candidates} demand={demand} onRefresh={loadAnalytics} onRefreshTrends={loadTrends} onRefreshMarket={loadMarketSignals} onCandidateSuitability={candidateSuitability} onRoleCandidates={roleCandidates} onShortlist={shortlist} />}{tab === 'links' && <PublicLinks links={links} candidates={candidates} demand={demand} onCreateLink={createLink} onRevokeLink={revokeLink} onRefresh={loadLinks} />}{tab === 'outreach' && <CustomerOutreach clients={outreachClients} appUsers={outreachUsers} logs={outreachLogs} smtpStatus={smtpStatus} onRefresh={loadOutreach} onSaveClient={savePotentialClient} onDeleteClient={deletePotentialClient} onSend={sendOutreachEmail} onTestSmtp={testSmtpConnection} />}{tab === 'security' && <SecurityPanel security={security} onRefresh={loadSecurity} onChangePassword={changePassword} />}{tab === 'admin' && <><CompanyProfile profile={companyProfile} onSave={saveCompanyProfile} onUploadLogo={uploadCompanyLogo} /><Users users={users} onCreateUser={createUser} onUpdateUser={updateUser} onToggleUser={toggleUser} onUnlockUser={unlockUser} onResetPassword={resetUserPassword} onCreateDemo={createDemo} /><Logs logs={logs} /></>}<FooterNote /></main>{editing && <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>{editing.id ? 'Edit Candidate' : 'Add Candidate'}</h2><button onClick={() => setEditing(null)}>×</button></div><CandidateForm initial={editing} onCancel={() => setEditing(null)} onSave={saveCandidate} /></div></div>}{editingDemand && <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>{editingDemand.id ? 'Edit Demand' : 'Add Demand'}</h2><button onClick={() => setEditingDemand(null)}>×</button></div><DemandForm initial={editingDemand} demandOptions={demand} onCancel={() => setEditingDemand(null)} onSave={saveDemand} /></div></div>}{selected && !editing && <CandidateDetail candidate={selected} user={user} onClose={() => setSelected(null)} onEdit={() => setEditing(selected)} onDelete={deleteCandidate} onAddAssessment={addAssessment} onRoleResumeUpload={uploadRoleResume} onDownload={downloadResume} onDownloadVersion={downloadVersion} onDownloadStandard={downloadStandardResume} />}{selectedDemand && !editingDemand && <DemandDetail demand={selectedDemand} matches={demandMatches} onClose={() => setSelectedDemand(null)} onEdit={() => setEditingDemand(selectedDemand)} onDelete={deleteDemand} onShortlist={shortlist} onRefreshMatches={() => loadSelectedDemand(selectedDemand.id)} onGenerateMcq={() => generateMcq(selectedDemand.id)} />}{toast && <div className="toast">{toast}</div>}</div>;
+  return <div className={`appShell ${collapsed ? 'collapsed' : ''}`}><aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}><button className="logo logoButton" type="button" onClick={() => setTab('dashboard')} title="Go to homepage"><img src={brandLogo} alt="Truflux Technologies logo" className="logoImage" /><div><strong>{APP_NAME}</strong><small>{APP_SUBTITLE}</small></div></button><button className="collapseBtn" onClick={toggleMenu}>{collapsed ? '›' : '‹ Collapse'}</button><nav>{nav.map(([key, icon, label]) => <button key={key} title={label} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}><span>{icon}</span><em>{label}</em></button>)}</nav><div className="sideFooter"><strong>{user.full_name}</strong><span>{user.role}</span><span className="sideMeta">Version {APP_VERSION}</span></div></aside><main><header className="topbar"><div><h1>{APP_NAME}</h1><p>{APP_SUBTITLE} · Bench planning, demand capture, candidate screening, resume rating, fake-resume risk and shortlist matching.</p></div><div className="topbarMeta"><span className="pill">Version {APP_VERSION}</span><button className="userTopChip" onClick={() => setTab('profile')} title="Open profile"><Avatar user={currentProfile || user} photoUrl={userPhotoUrl} /><span>{(currentProfile || user)?.full_name || user?.username}</span></button><button className="logoutIcon" onClick={logout} title="Logout" aria-label="Logout">⎋</button></div></header>{tab === 'dashboard' && <Dashboard dashboard={dashboard} onExport={exportCsv} onRefresh={() => refreshWorkspace(true)} refreshing={refreshingDashboard} />}{tab === 'profile' && <MyProfile user={currentProfile || user} photoUrl={userPhotoUrl} onSave={saveMyProfile} onUploadPhoto={uploadMyPhoto} />}{tab === 'demand' && <DemandPage demand={demand} filters={demandFilters} setFilters={setDemandFilters} onCreate={() => setEditingDemand(emptyDemand)} onSelect={loadSelectedDemand} />}{tab === 'candidates' && <Candidates candidates={candidates} filters={filters} setFilters={setFilters} onCreate={() => setEditing(emptyCandidate)} onSelect={loadSelected} onDownloadStandard={downloadStandardResume} />}{tab === 'intelligence' && <MLAnalytics analytics={analytics} trends={trends} marketSignals={marketSignals} candidates={candidates} demand={demand} onRefresh={loadAnalytics} onRefreshTrends={loadTrends} onRefreshMarket={loadMarketSignals} onCandidateSuitability={candidateSuitability} onRoleCandidates={roleCandidates} onShortlist={shortlist} />}{tab === 'links' && <PublicLinks links={links} candidates={candidates} demand={demand} onCreateLink={createLink} onRevokeLink={revokeLink} onRefresh={loadLinks} />}{tab === 'outreach' && <CustomerOutreach clients={outreachClients} appUsers={outreachUsers} logs={outreachLogs} smtpStatus={smtpStatus} onRefresh={loadOutreach} onSaveClient={savePotentialClient} onDeleteClient={deletePotentialClient} onSend={sendOutreachEmail} onTestSmtp={testSmtpConnection} />}{tab === 'security' && <SecurityPanel security={security} onRefresh={loadSecurity} onChangePassword={changePassword} />}{tab === 'admin' && <><CompanyProfile profile={companyProfile} onSave={saveCompanyProfile} onUploadLogo={uploadCompanyLogo} /><Users users={users} onCreateUser={createUser} onUpdateUser={updateUser} onToggleUser={toggleUser} onUnlockUser={unlockUser} onResetPassword={resetUserPassword} onCreateDemo={createDemo} /><Logs logs={logs} /></>}<FooterNote /></main>{editing && <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>{editing.id ? 'Edit Candidate' : 'Add Candidate'}</h2><button onClick={() => setEditing(null)}>×</button></div><CandidateForm initial={editing} onCancel={() => setEditing(null)} onSave={saveCandidate} /></div></div>}{editingDemand && <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>{editingDemand.id ? 'Edit Demand' : 'Add Demand'}</h2><button onClick={() => setEditingDemand(null)}>×</button></div><DemandForm initial={editingDemand} demandOptions={demand} onCancel={() => setEditingDemand(null)} onSave={saveDemand} /></div></div>}{selected && !editing && <CandidateDetail candidate={selected} user={user} onClose={() => setSelected(null)} onEdit={() => setEditing(selected)} onDelete={deleteCandidate} onAddAssessment={addAssessment} onRoleResumeUpload={uploadRoleResume} onDownload={downloadResume} onDownloadVersion={downloadVersion} onDownloadStandard={downloadStandardResume} />}{selectedDemand && !editingDemand && <DemandDetail demand={selectedDemand} matches={demandMatches} onClose={() => setSelectedDemand(null)} onEdit={() => setEditingDemand(selectedDemand)} onDelete={deleteDemand} onShortlist={shortlist} onRefreshMatches={() => loadSelectedDemand(selectedDemand.id)} onGenerateMcq={() => generateMcq(selectedDemand.id)} />}{toast && <div className="toast">{toast}</div>}</div>;
 }
 
-export default App;
+export default function WrappedApp() { return <AppErrorBoundary><App /></AppErrorBoundary>; }

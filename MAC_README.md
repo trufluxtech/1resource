@@ -450,3 +450,20 @@ EMAIL_FROM_NAME=1Resource Team
 - Added a manual `Refresh Dashboard` button.
 - Candidate/demand save, delete, shortlist and demo-data actions now refresh dashboard, demand list, candidate list, analytics and trends together.
 - Toast messages confirm dashboard refresh after key updates.
+
+
+## Production 1.16 Blank Page Safety Fix
+
+- Removed the risky frontend `Cache-Control` request header introduced in 1.15.
+- Kept safer dashboard cache-busting through query timestamp and backend no-cache headers.
+- Added a frontend runtime error boundary so the app displays a recovery screen instead of a blank page.
+- Recovery screen allows clearing the local login session and reloading.
+- Dashboard refresh behavior from 1.15 is retained.
+
+
+## Production 1.17 Export Candidates Blank Page Fix
+
+- Fixed dashboard blank page caused by undefined `exportCandidates`.
+- Dashboard export now correctly uses the existing `exportCsv` function.
+- Added a defensive fallback for the dashboard Export CSV button.
+- Version updated to Production 1.17.
