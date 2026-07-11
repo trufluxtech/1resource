@@ -517,3 +517,12 @@ EMAIL_FROM_NAME=1Resource Team
 - Dashboard export now correctly uses the existing `exportCsv` function.
 - Added a defensive fallback for the dashboard Export CSV button.
 - Version updated to Production 1.17.
+
+
+## Production 1.18 Demand Click Edit and Dashboard Number Refresh
+
+- Clicking a demand row now opens the demand edit form directly.
+- A new View button opens the demand detail drawer for shortlist, MCQ and match details.
+- Dashboard numbers refresh when returning to Dashboard.
+- Candidate/demand save, delete and shortlist actions now perform a stronger post-mutation dashboard refresh.
+- Dashboard refresh uses cache-busting and a short second refresh after mutations to make updated counts visible.
