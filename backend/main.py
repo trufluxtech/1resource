@@ -37,13 +37,16 @@ from reportlab.platypus import Image as RLImage
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 APP_NAME = "1Resource"
-APP_VERSION = "Production 1.12"
+APP_VERSION = "Production 1.13"
+APP_ENV = os.environ.get("APP_ENV", "development").strip().lower()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.environ.get("DATA_DIR", os.path.join(BASE_DIR, "data"))
 UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 DB_PATH = os.environ.get("DATABASE_PATH", os.path.join(DATA_DIR, "resume_bank.db"))
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 USE_POSTGRES = DATABASE_URL.startswith(("postgres://", "postgresql://"))
+if APP_ENV in {"production", "prod"} and not USE_POSTGRES:
+    raise RuntimeError("Production mode requires PostgreSQL. Set Railway DATABASE_URL=${{Postgres.DATABASE_URL}}. SQLite is allowed only for local development.")
 SESSION_TTL_HOURS = int(os.environ.get("SESSION_TTL_HOURS", "8"))
 MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", "10"))
 MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
@@ -2189,7 +2192,14 @@ def build_standardized_resume_pdf(candidate: Dict[str, Any], company: Dict[str, 
 
 @app.get("/api/health")
 def health() -> Dict[str, str]:
-    return {"status": "ok", "app": APP_NAME, "version": APP_VERSION}
+    return {
+        "status": "ok",
+        "app": APP_NAME,
+        "version": APP_VERSION,
+        "app_env": APP_ENV,
+        "database": "postgresql" if USE_POSTGRES else "sqlite",
+        "data_dir": DATA_DIR,
+    }
 
 
 @app.post("/api/login")

@@ -455,3 +455,30 @@ For Railway, add a PostgreSQL service and link its `DATABASE_URL` to this applic
   - Purple: above 5 to 10 years
   - Yellow: 10 to 20 years
   - Blue: 20+ years
+
+
+## Production 1.13 PostgreSQL Enforced for Railway
+
+- Production mode now requires PostgreSQL.
+- If `APP_ENV=production` and `DATABASE_URL` is missing, the app will fail fast instead of silently using local SQLite.
+- `/api/health` now shows the active database engine:
+  - `database: postgresql` when Railway PostgreSQL is active
+  - `database: sqlite` only for local development
+- This prevents deployment data from being reset when a new ZIP/version is pushed.
+- Keep uploaded files persistent by mounting a Railway Volume at `/data` and setting `DATA_DIR=/data`.
+
+Required Railway variables:
+```text
+APP_ENV=production
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+DATA_DIR=/data
+```
+
+Recommended Mailjet variables:
+```text
+EMAIL_PROVIDER=mailjet_api
+MAILJET_API_KEY=your-mailjet-api-key
+MAILJET_SECRET_KEY=your-mailjet-secret-key
+EMAIL_FROM=your-verified-sender@yourdomain.com
+EMAIL_FROM_NAME=1Resource Team
+```

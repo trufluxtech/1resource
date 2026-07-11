@@ -1,6 +1,6 @@
 {
   "name": "1resource-frontend",
-  "version": "1.0.12-production.1",
+  "version": "1.0.13-production.1",
   "private": true,
   "type": "module",
   "scripts": {
