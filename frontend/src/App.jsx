@@ -4,8 +4,8 @@ import brandLogo from './assets/truflux_logo.png';
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 const APP_NAME = '1Resource';
 const APP_SUBTITLE = 'by Truflux Technologies';
-const APP_VERSION = 'Production 1.11';
-const APP_FOOTER = '1Resource by Truflux Technologies | Version Production 1.11 | © 2026 Truflux Technologies. All rights reserved. | Internal Use Only';
+const APP_VERSION = 'Production 1.12';
+const APP_FOOTER = '1Resource by Truflux Technologies | Version Production 1.12 | © 2026 Truflux Technologies. All rights reserved. | Internal Use Only';
 
 const emptyCandidate = {
   full_name: '', email: '', phone: '', location: '', current_status: 'Available', availability_date: 'Immediate', available_by_date: '', notice_period_days: 0,
@@ -66,6 +66,24 @@ function fakeRiskRag(score) {
   if (value >= 75) return { rag: 'Red', label: 'Red - High Fake Risk', helper: 'Manual validation required' };
   if (value >= 45) return { rag: 'Amber', label: 'Amber - Needs Review', helper: 'Review before shortlisting' };
   return { rag: 'Green', label: 'Green - Low Signal', helper: 'Normal screening' };
+}
+
+function candidateExperienceClass(exp) {
+  const value = Number(exp || 0);
+  if (value >= 20) return 'candidateExp20';
+  if (value >= 10) return 'candidateExp10';
+  if (value > 5) return 'candidateExp5to10';
+  if (value >= 5) return 'candidateExp5';
+  if (value >= 3) return 'candidateExp3';
+  return 'candidateExp0';
+}
+
+function matchLevelClass(level, score) {
+  const s = Number(score || 0);
+  if (s >= 75) return 'matchStrong';
+  if (s >= 60) return 'matchReview';
+  if (s >= 40) return 'matchWeak';
+  return 'matchNo';
 }
 
 function FakeRiskRag({ score, compact = false }) {
@@ -310,7 +328,8 @@ function Candidates({ candidates, filters, setFilters, onCreate, onSelect, onDow
   return <section className="pageBlock">
     <div className="sectionHeader"><div><h2>Resume Bank</h2><p>Supply-side candidate repository with role-wise resume versions and ML screening.</p></div><button className="primary" onClick={onCreate}>Add candidate</button></div>
     <div className="filters"><input placeholder="Search candidate, code, domain..." value={filters.q} onChange={e => setFilters({ ...filters, q: e.target.value })} /><input placeholder="Skill filter" value={filters.skill} onChange={e => setFilters({ ...filters, skill: e.target.value })} /><select value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })}><option value="">All status</option><option>A1 - Ready to Deploy</option><option>A2 - Deployable in 15 Days</option><option>B - Keep Warm</option><option>Screening</option><option>New</option><option>Rejected / Archive</option></select><select value={filters.availability} onChange={e => setFilters({ ...filters, availability: e.target.value })}><option value="">All availability</option><option>Available</option><option>Bench</option><option>Notice Period</option><option>Employed</option><option>Freelance</option><option>Not Available</option><option>Screening</option></select></div>
-    <div className="tableWrap"><table><thead><tr><th>Code</th><th>Name</th><th>Skill</th><th>Experience</th><th>Availability</th><th>Available By</th><th>Notice</th><th>Status</th><th>ML Rating</th><th>Fake Risk</th><th>Photo</th><th>Rate</th><th>Standard Resume</th></tr></thead><tbody>{candidates.map(c => <tr key={c.id} onClick={() => onSelect(c.id)}><td>{c.candidate_code}</td><td><strong>{c.full_name}</strong><br /><small>{c.email}</small></td><td>{c.primary_skill}<br /><small>{c.secondary_skills}</small></td><td>{c.total_experience} yrs</td><td>{c.current_status}<br /><small>{c.availability_date}</small></td><td>{c.available_by_date || '-'}</td><td>{c.notice_period_days || 0} days</td><td><span className="pill">{c.status}</span></td><td><strong>{c.ml_rating_score || 0}/100</strong><br /><small>{c.ml_rating_level || 'Not rated'}</small></td><td><strong>{c.fake_risk_score || 0}/100</strong><br /><FakeRiskRag score={c.fake_risk_score} /><br /><small>{c.fake_risk_level || 'Not checked'}</small></td><td>{c.photo_file_name ? <span className="pill">Available</span> : <small>-</small>}</td><td>{money(c.negotiated_rate || c.expected_rate)}</td><td><button type="button" className="linkButton asButton" onClick={e => { e.stopPropagation(); onDownloadStandard(c.id, c.candidate_code); }}>Create Resume</button></td></tr>)}</tbody></table>{candidates.length === 0 && <p className="empty">No candidate matches the current filters.</p>}</div>
+    <div className="expLegend"><span className="candidateExp0">0 yrs</span><span className="candidateExp3">3+ yrs</span><span className="candidateExp5">5 yrs</span><span className="candidateExp5to10">5–10 yrs</span><span className="candidateExp10">10–20 yrs</span><span className="candidateExp20">20+ yrs</span></div>
+    <div className="tableWrap"><table><thead><tr><th>Code</th><th>Name</th><th>Skill</th><th>Experience</th><th>Availability</th><th>Available By</th><th>Notice</th><th>Status</th><th>ML Rating</th><th>Fake Risk</th><th>Photo</th><th>Rate</th><th>Standard Resume</th></tr></thead><tbody>{candidates.map(c => <tr key={c.id} className={candidateExperienceClass(c.total_experience)} onClick={() => onSelect(c.id)}><td>{c.candidate_code}</td><td><strong>{c.full_name}</strong><br /><small>{c.email}</small></td><td>{c.primary_skill}<br /><small>{c.secondary_skills}</small></td><td><strong>{c.total_experience} yrs</strong></td><td>{c.current_status}<br /><small>{c.availability_date}</small></td><td>{c.available_by_date || '-'}</td><td>{c.notice_period_days || 0} days</td><td><span className="pill">{c.status}</span></td><td><strong>{c.ml_rating_score || 0}/100</strong><br /><small>{c.ml_rating_level || 'Not rated'}</small></td><td><strong>{c.fake_risk_score || 0}/100</strong><br /><FakeRiskRag score={c.fake_risk_score} /><br /><small>{c.fake_risk_level || 'Not checked'}</small></td><td>{c.photo_file_name ? <span className="pill">Available</span> : <small>-</small>}</td><td>{money(c.negotiated_rate || c.expected_rate)}</td><td><button type="button" className="linkButton asButton" onClick={e => { e.stopPropagation(); onDownloadStandard(c.id, c.candidate_code); }}>Create Resume</button></td></tr>)}</tbody></table>{candidates.length === 0 && <p className="empty">No candidate matches the current filters.</p>}</div>
   </section>;
 }
 
@@ -460,12 +479,12 @@ function MLAnalytics({ analytics, trends, marketSignals, candidates, demand, onR
     <div className="twoCol">
       <div className="panel"><h3>1. Candidate suitability for roles</h3><p>Select one candidate and check fitment across open demand records.</p>
         <div className="formGrid two"><label>Candidate<select value={candidateId} onChange={e => setCandidateId(e.target.value)}><option value="">Select candidate</option>{candidates.map(c => <option key={c.id} value={c.id}>{c.candidate_code} · {c.full_name} · {c.primary_skill || 'Skill not set'}</option>)}</select></label><label>&nbsp;<button className="primary" onClick={checkCandidate} disabled={!candidateId || loading === 'candidate'}>{loading === 'candidate' ? 'Checking...' : 'Check suitability'}</button></label></div>
-        {candidateFit && <div className="tableWrap spaceTop"><table><thead><tr><th>Role</th><th>Client</th><th>Score</th><th>Match</th><th>Commercial</th><th>Gaps</th></tr></thead><tbody>{candidateFit.matches.map(m => <tr key={m.demand_id}><td><strong>{m.role_title}</strong><br /><small>{m.demand_code} · {m.priority}</small></td><td>{m.client_name || '-'}<br /><small>{m.project_name || '-'}</small></td><td><strong>{m.match_score}/100</strong></td><td>{m.match_level}</td><td>{m.commercial_fit}</td><td>{(m.skill_gaps || []).join ? m.skill_gaps.join(', ') : m.skill_gaps}</td></tr>)}</tbody></table></div>}
+        {candidateFit && <div className="tableWrap spaceTop"><table><thead><tr><th>Role</th><th>Client</th><th>Score</th><th>Match</th><th>Skill Match</th><th>Commercial</th><th>Gaps</th><th>Strict Notes</th></tr></thead><tbody>{candidateFit.matches.map(m => <tr key={m.demand_id} className={matchLevelClass(m.match_level, m.match_score)}><td><strong>{m.role_title}</strong><br /><small>{m.demand_code} · {m.priority}</small></td><td>{m.client_name || '-'}<br /><small>{m.project_name || '-'}</small></td><td><strong>{m.match_score}/100</strong></td><td>{m.match_level}</td><td>{(m.skill_matches || []).join ? m.skill_matches.join(', ') : m.skill_matches || '-'}<br /><small>{Math.round((m.skill_match_ratio || 0) * 100)}% required-skill coverage</small></td><td>{m.commercial_fit}</td><td>{(m.skill_gaps || []).join ? m.skill_gaps.join(', ') : m.skill_gaps}</td><td>{m.strict_notes || '-'}<br /><small>{m.experience_fit || ''}</small></td></tr>)}</tbody></table></div>}
       </div>
 
       <div className="panel"><h3>2. Role-based candidate shortlist</h3><p>Select one demand record and shortlist the best candidates directly from intelligence.</p>
         <div className="formGrid two"><label>Demand role<select value={demandId} onChange={e => setDemandId(e.target.value)}><option value="">Select demand</option>{demand.map(d => <option key={d.id} value={d.id}>{d.demand_code} · {d.client_name || 'Client'} · {d.role_title}</option>)}</select></label><label>&nbsp;<button className="primary" onClick={checkRole} disabled={!demandId || loading === 'role'}>{loading === 'role' ? 'Finding...' : 'Find candidates'}</button></label></div>
-        {roleFit && <div className="tableWrap spaceTop"><table><thead><tr><th>Candidate</th><th>Skill</th><th>Score</th><th>Availability</th><th>Risk</th><th>Action</th></tr></thead><tbody>{roleFit.matches.slice(0, 15).map(m => <tr key={m.candidate_id}><td><strong>{m.full_name}</strong><br /><small>{m.candidate_code}</small></td><td>{m.primary_skill}<br /><small>{m.secondary_skills}</small></td><td><strong>{m.match_score}/100</strong><br /><small>{m.match_level}</small></td><td>{m.availability_fit || '-'}<br /><small>{m.available_by_date || '-'} · {m.notice_period_days || 0} days</small></td><td>{m.fake_risk_score || 0}/100</td><td><button onClick={() => onShortlist(roleFit.demand.id, m.candidate_id)}>Shortlist</button></td></tr>)}</tbody></table></div>}
+        {roleFit && <div className="tableWrap spaceTop"><table><thead><tr><th>Candidate</th><th>Skill</th><th>Score</th><th>Skill Match</th><th>Availability</th><th>Risk</th><th>Strict Notes</th><th>Action</th></tr></thead><tbody>{roleFit.matches.slice(0, 15).map(m => <tr key={m.candidate_id} className={`${candidateExperienceClass(m.total_experience)} ${matchLevelClass(m.match_level, m.match_score)}`}><td><strong>{m.full_name}</strong><br /><small>{m.candidate_code}</small></td><td>{m.primary_skill}<br /><small>{m.secondary_skills}</small></td><td><strong>{m.match_score}/100</strong><br /><small>{m.match_level}</small></td><td>{(m.skill_matches || []).join ? m.skill_matches.join(', ') : m.skill_matches || '-'}<br /><small>{Math.round((m.skill_match_ratio || 0) * 100)}% coverage</small></td><td>{m.availability_fit || '-'}<br /><small>{m.available_by_date || '-'} · {m.notice_period_days || 0} days</small></td><td>{m.fake_risk_score || 0}/100</td><td>{m.strict_notes || '-'}<br /><small>{m.experience_fit || ''}</small></td><td><button disabled={(m.match_score || 0) < 40} onClick={() => onShortlist(roleFit.demand.id, m.candidate_id)}>Shortlist</button></td></tr>)}</tbody></table></div>}
       </div>
     </div>
 

@@ -171,3 +171,25 @@ chmod +x clean_start_mac.sh
 - Login page remains blank and does not pre-fill the Admin username or password.
 - Login page no longer displays default credentials.
 - Admin should change default passwords after first login.
+
+
+## Production 1.12 Strict Intelligence, Resume Parsing and Experience Color Coding
+
+- Candidate suitability and role-based shortlist now use stricter scoring.
+- Required skill coverage is now the dominant scoring factor.
+- Candidates with zero required-skill match are capped as not suitable.
+- Low required-skill coverage is capped and shown with strict notes.
+- Matching now returns required skills, available skills, skill coverage percentage, title fit, domain fit and experience fit.
+- Resume parsing improved for PDF/DOCX/TXT:
+  - Better name detection
+  - Better email/phone detection
+  - Better skill extraction with Salesforce, Azure DevOps, HL7/FHIR, Terraform and data engineering terms
+  - Better experience detection from direct years, total experience labels and year ranges
+  - DOCX table text extraction added
+- Resume Bank rows are color-coded by total experience:
+  - White: 0 years
+  - Green: 3+ years
+  - Pink: 5 years
+  - Purple: above 5 to 10 years
+  - Yellow: 10 to 20 years
+  - Blue: 20+ years

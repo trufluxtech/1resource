@@ -37,7 +37,7 @@ from reportlab.platypus import Image as RLImage
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 APP_NAME = "1Resource"
-APP_VERSION = "Production 1.11"
+APP_VERSION = "Production 1.12"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.environ.get("DATA_DIR", os.path.join(BASE_DIR, "data"))
 UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
@@ -122,41 +122,53 @@ async def security_middleware(request: Request, call_next):
     return response
 
 SKILL_ALIASES: Dict[str, List[str]] = {
-    "React": ["react", "reactjs", "react.js"],
-    "Node.js": ["node", "node.js", "nodejs", "express"],
-    "Python": ["python"],
+    "React": ["react", "reactjs", "react.js", "redux", "next.js", "nextjs", "frontend", "front end"],
+    "Node.js": ["node", "node.js", "nodejs", "express", "express.js", "nestjs", "nest js", "backend", "back end"],
+    "Python": ["python", "pandas", "numpy"],
     "FastAPI": ["fastapi", "fast api"],
-    "Django": ["django"],
-    "Java": ["java", "spring boot", "spring"],
-    "JavaScript": ["javascript", "js", "es6"],
+    "Django": ["django", "drf", "django rest framework"],
+    "Java": ["java", "spring boot", "spring", "springboot", "microservices"],
+    "JavaScript": ["javascript", "js", "es6", "ecmascript"],
     "TypeScript": ["typescript", "ts"],
-    "SQL": ["sql", "mysql", "postgres", "postgresql", "sqlite", "oracle"],
-    "MongoDB": ["mongodb", "mongo"],
-    "AWS": ["aws", "amazon web services"],
-    "Azure": ["azure"],
-    "Docker": ["docker", "container"],
-    "Kubernetes": ["kubernetes", "k8s"],
-    "DevOps": ["devops", "ci/cd", "github actions", "jenkins"],
-    "QA Automation": ["qa automation", "selenium", "playwright", "cypress", "test automation"],
-    "Manual Testing": ["manual testing", "test cases", "uat"],
+    "SQL": ["sql", "mysql", "postgres", "postgresql", "sqlite", "oracle", "sql server", "mssql", "plsql", "pl/sql"],
+    "MongoDB": ["mongodb", "mongo", "nosql"],
+    "AWS": ["aws", "amazon web services", "lambda", "ec2", "s3", "cloudwatch"],
+    "Azure": ["azure", "azure devops", "azure functions", "aks"],
+    "Salesforce": ["salesforce", "apex", "lwc", "lightning web component", "lightning", "flow", "flows", "soql", "salesforce health cloud", "health cloud", "salesforce shield"],
+    "HL7/FHIR": ["hl7", "fhir", "hl7 fhir", "healthcare interoperability"],
+    "Docker": ["docker", "container", "containers", "containerization"],
+    "Kubernetes": ["kubernetes", "k8s", "helm"],
+    "Terraform": ["terraform", "iac", "infrastructure as code"],
+    "DevOps": ["devops", "ci/cd", "cicd", "github actions", "jenkins", "gitlab ci", "azure pipelines", "release pipeline"],
+    "QA Automation": ["qa automation", "selenium", "playwright", "cypress", "test automation", "automation testing"],
+    "Manual Testing": ["manual testing", "test cases", "uat", "functional testing"],
     "UI/UX": ["ui/ux", "ux", "figma", "wireframe", "prototype", "design system"],
     "Power BI": ["power bi", "powerbi", "dax"],
     "Tableau": ["tableau"],
-    "Data Engineering": ["data engineering", "etl", "pipeline", "airflow", "spark", "databricks"],
-    "AI/ML": ["machine learning", "ml", "ai", "llm", "rag", "genai", "generative ai", "model"],
-    "Business Analyst": ["business analyst", "user stories", "brd", "frd", "requirements"],
-    "Project Management": ["project manager", "scrum", "agile", "pmp", "delivery manager"],
-    "Mobile": ["react native", "flutter", "android", "ios", "mobile"],
+    "Data Engineering": ["data engineering", "data engineer", "etl", "pipeline", "airflow", "spark", "databricks", "data pipeline", "data warehouse", "bigquery", "snowflake"],
+    "AI/ML": ["machine learning", "ml", "ai", "llm", "rag", "genai", "generative ai", "model", "deep learning"],
+    "Business Analyst": ["business analyst", "business analysis", "user stories", "brd", "frd", "requirements", "stakeholder"],
+    "Project Management": ["project manager", "project management", "scrum", "agile", "pmp", "delivery manager", "program manager"],
+    "Mobile": ["react native", "flutter", "android", "ios", "mobile", "kotlin", "swift"],
 }
 
 SKILL_CLUSTERS: Dict[str, List[str]] = {
     "Frontend": ["React", "JavaScript", "TypeScript", "UI/UX", "Mobile"],
-    "Backend": ["Node.js", "Python", "FastAPI", "Django", "Java", "SQL", "MongoDB"],
+    "Backend": ["Node.js", "Python", "FastAPI", "Django", "Java", "SQL", "MongoDB", "Salesforce", "HL7/FHIR"],
     "Data & AI": ["AI/ML", "Data Engineering", "Power BI", "Tableau", "Python", "SQL"],
-    "Cloud & DevOps": ["AWS", "Azure", "Docker", "Kubernetes", "DevOps"],
+    "Cloud & DevOps": ["AWS", "Azure", "Docker", "Kubernetes", "Terraform", "DevOps"],
     "Quality": ["QA Automation", "Manual Testing"],
     "Consulting & Delivery": ["Business Analyst", "Project Management"],
 }
+
+SKILL_TO_CLUSTER: Dict[str, str] = {
+    skill: cluster for cluster, skills in SKILL_CLUSTERS.items() for skill in skills
+}
+
+
+def skill_cluster(skill: str) -> str:
+    return SKILL_TO_CLUSTER.get(skill, skill)
+
 
 DOMAIN_TERMS = [
     "Banking", "Insurance", "Government", "GovTech", "Retail", "SaaS", "Healthcare", "Education",
@@ -1230,44 +1242,186 @@ def level_from_match(score: int) -> str:
         return "Strong Match"
     if score >= 60:
         return "Review Match"
-    return "Weak Match"
+    if score >= 40:
+        return "Weak Match"
+    return "Not Suitable"
+
+
+def demand_required_skills(demand: Dict[str, Any]) -> List[str]:
+    explicit = extract_skills(str(demand.get("required_skills") or ""))
+    contextual = extract_skills(" ".join([
+        str(demand.get("role_title") or ""),
+        str(demand.get("role_definition") or ""),
+    ]))
+    combined = []
+    for skill in explicit + contextual:
+        if skill not in combined:
+            combined.append(skill)
+    return combined
+
+
+def candidate_available_skills(candidate: Dict[str, Any]) -> List[str]:
+    text = " ".join([
+        str(candidate.get("primary_skill") or ""),
+        str(candidate.get("secondary_skills") or ""),
+        str(candidate.get("skill_matches") or ""),
+        str(candidate.get("resume_text") or ""),
+        str(candidate.get("domain_exposure") or ""),
+        str(candidate.get("current_company") or ""),
+        str(candidate.get("previous_companies") or ""),
+        str(candidate.get("project_details") or ""),
+    ])
+    return extract_skills(text)
+
+
+def role_title_alignment(candidate: Dict[str, Any], demand: Dict[str, Any], matches: List[str]) -> Tuple[int, str]:
+    title_text = str(demand.get("role_title") or "").lower()
+    candidate_text = " ".join([
+        str(candidate.get("primary_skill") or ""),
+        str(candidate.get("secondary_skills") or ""),
+        str(candidate.get("resume_text") or ""),
+        str(candidate.get("project_details") or ""),
+    ]).lower()
+    title_skills = extract_skills(title_text)
+    if title_skills and any(s in matches for s in title_skills):
+        return 10, "Role-title skill matched"
+    if any(word in title_text for word in ["lead", "architect", "manager", "senior"]):
+        exp = float(candidate.get("relevant_experience") or candidate.get("total_experience") or 0)
+        if exp < 5:
+            return -6, "Seniority risk"
+    if title_text and any(word in candidate_text for word in [w for w in re.split(r"[^a-z0-9]+", title_text) if len(w) > 3]):
+        return 4, "Role-title wording partially matched"
+    return 0, "No explicit title alignment"
+
+
+def domain_alignment(candidate: Dict[str, Any], demand: Dict[str, Any]) -> Tuple[int, str]:
+    demand_domains = extract_domains(" ".join([str(demand.get("domain") or ""), str(demand.get("role_definition") or "")]))
+    candidate_domains = extract_domains(" ".join([str(candidate.get("domain_exposure") or ""), str(candidate.get("resume_text") or ""), str(candidate.get("project_details") or "")]))
+    if not demand_domains:
+        return 2, "Demand domain not specified"
+    common = [d for d in demand_domains if d in candidate_domains]
+    if common:
+        return 8, "Domain matched: " + ", ".join(common)
+    return -4, "Domain not evident"
+
+
+def experience_alignment(candidate: Dict[str, Any], demand: Dict[str, Any]) -> Tuple[int, str]:
+    exp = float(candidate.get("relevant_experience") or candidate.get("total_experience") or 0)
+    text = " ".join([str(demand.get("role_title") or ""), str(demand.get("role_definition") or "")]).lower()
+    min_exp = 0.0
+    exp_matches = re.findall(r"(\d{1,2}(?:\.\d+)?)\s*(?:\+)?\s*(?:years|yrs|year)", text)
+    if exp_matches:
+        min_exp = max(float(x) for x in exp_matches)
+    elif any(w in text for w in ["architect", "lead", "senior", "manager"]):
+        min_exp = 5.0
+    elif any(w in text for w in ["junior", "associate", "fresher"]):
+        min_exp = 0.0
+    if min_exp and exp < min_exp:
+        return -8, f"Experience below role expectation: {exp:g}/{min_exp:g} yrs"
+    if exp >= max(min_exp, 3):
+        return 10, f"Experience fit: {exp:g} yrs"
+    if exp > 0:
+        return 5, f"Limited experience: {exp:g} yrs"
+    return -6, "Experience not evident"
+
+
+def strict_match_notes(required: List[str], matches: List[str], gaps: List[str], score: int) -> str:
+    if required and not matches:
+        return "Rejected by strict screen: no required skills found."
+    if required and len(matches) / max(1, len(required)) < 0.4:
+        return "Strict screen: low required-skill coverage."
+    if score >= 75:
+        return "Strong skill and fit evidence."
+    if score >= 60:
+        return "Usable shortlist candidate; review gaps."
+    if score >= 40:
+        return "Weak fit; shortlist only if bench options are limited."
+    return "Not suitable for this role."
 
 
 def match_candidate_to_demand(candidate: Dict[str, Any], demand: Dict[str, Any]) -> Dict[str, Any]:
-    role_text = " ".join([
-        str(demand.get("role_title") or ""), str(demand.get("role_definition") or ""), str(demand.get("required_skills") or "")
-    ])
-    candidate_text = " ".join([
-        str(candidate.get("primary_skill") or ""), str(candidate.get("secondary_skills") or ""),
-        str(candidate.get("skill_matches") or ""), str(candidate.get("resume_text") or ""), str(candidate.get("domain_exposure") or "")
-    ])
-    required = extract_skills(role_text)
-    available = extract_skills(candidate_text)
+    required = demand_required_skills(demand)
+    available = candidate_available_skills(candidate)
     matches = [s for s in required if s in available]
     gaps = [s for s in required if s not in available]
-    match_ratio = len(matches) / max(1, len(required)) if required else min(1, len(available) / 6)
-    exp = float(candidate.get("relevant_experience") or candidate.get("total_experience") or 0)
+    match_ratio = len(matches) / max(1, len(required)) if required else 0.0
+
+    matched_clusters = {skill_cluster(s) for s in matches}
+    required_clusters = {skill_cluster(s) for s in required}
+    cluster_ratio = len(matched_clusters) / max(1, len(required_clusters)) if required_clusters else 0.0
+
+    title_bonus, title_note = role_title_alignment(candidate, demand, matches)
+    domain_bonus, domain_note = domain_alignment(candidate, demand)
+    exp_bonus, exp_note = experience_alignment(candidate, demand)
+    availability_bonus, availability_fit_text = availability_fit(candidate, demand)
+
     ml = int(candidate.get("ml_rating_score") or 0)
     fake_risk = int(candidate.get("fake_risk_score") or 0)
     rate = float(candidate.get("negotiated_rate") or candidate.get("expected_rate") or 0)
     max_cost = float(demand.get("max_internal_cost") or 0)
-    commercial_bonus = 10 if max_cost and rate and rate <= max_cost else (5 if not max_cost or not rate else -8)
-    availability_bonus, availability_fit_text = availability_fit(candidate, demand)
-    score = int(round(match_ratio * 50 + min(exp, 12) * 2 + min(max(ml, 50), 100) * 0.15 + availability_bonus + commercial_bonus - fake_risk * 0.08))
-    score = max(0, min(100, score))
+    commercial_bonus = 5 if max_cost and rate and rate <= max_cost else (2 if not max_cost or not rate else -6)
     commercial_fit = "Within cost band" if max_cost and rate and rate <= max_cost else ("Cost not available" if not rate else "Above cost band")
+
+    # Stricter weighting: required skills dominate. Experience/availability/commercials cannot rescue a poor skill fit.
+    skill_score = match_ratio * 58
+    cluster_score = cluster_ratio * 8
+    resume_quality_score = min(max(ml, 0), 100) * 0.05 if ml else 0
+    risk_penalty = min(14, fake_risk * 0.14)
+
+    raw = skill_score + cluster_score + title_bonus + domain_bonus + exp_bonus + min(8, availability_bonus) + commercial_bonus + resume_quality_score - risk_penalty
+
+    if required and not matches:
+        raw = min(raw, 34)
+    elif required and match_ratio < 0.40:
+        raw = min(raw, 58)
+    elif required and match_ratio < 0.60:
+        raw = min(raw, 70)
+    if fake_risk >= 75:
+        raw = min(raw, 55)
+
+    score = max(0, min(100, int(round(raw))))
+    notes = strict_match_notes(required, matches, gaps, score)
     return {
         "match_score": score,
         "match_level": level_from_match(score),
+        "required_skills": required,
+        "available_skills": available,
         "skill_matches": matches,
         "skill_gaps": gaps,
+        "skill_match_ratio": round(match_ratio, 2),
         "commercial_fit": commercial_fit,
         "availability_fit": availability_fit_text,
+        "title_fit": title_note,
+        "domain_fit": domain_note,
+        "experience_fit": exp_note,
+        "strict_notes": notes,
     }
 
 
 def normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", text or " ").strip()
+
+
+def clean_extracted_text(text: str) -> str:
+    value = text or ""
+    value = value.replace("\x00", " ")
+    value = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", value)
+    value = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", value)
+    value = re.sub(r"[ \t]+", " ", value)
+    value = re.sub(r"\n{3,}", "\n\n", value)
+    return value.strip()
+
+
+def canonicalize_name(name: str) -> str:
+    parts = []
+    for word in re.split(r"\s+", re.sub(r"[^A-Za-z .'-]", " ", name or "").strip()):
+        if not word:
+            continue
+        if word.isupper():
+            parts.append(word.title())
+        else:
+            parts.append(word[0].upper() + word[1:])
+    return " ".join(parts).strip()
 
 
 def extract_skills(text: str) -> List[str]:
@@ -1284,36 +1438,133 @@ def extract_skills(text: str) -> List[str]:
 
 def extract_domains(text: str) -> List[str]:
     lower = normalize_text(text).lower()
-    return [d for d in DOMAIN_TERMS if d.lower() in lower]
+    found = []
+    for d in DOMAIN_TERMS:
+        if d.lower() in lower and d not in found:
+            found.append(d)
+    return found
+
+
+def years_between(start_year: int, end_year: int) -> float:
+    if start_year < 1970 or end_year < 1970 or end_year < start_year:
+        return 0.0
+    return min(50.0, float(end_year - start_year))
 
 
 def extract_experience_years(text: str) -> float:
-    lower = text.lower()
-    values = []
-    for match in re.finditer(r"(\d{1,2}(?:\.\d+)?)\s*(?:\+)?\s*(?:years|yrs|year)", lower):
+    lower = normalize_text(text).lower()
+    values: List[float] = []
+
+    # Direct mentions: 8.8 years, 7 yrs, 10+ year experience.
+    for match in re.finditer(r"(\d{1,2}(?:\.\d+)?)\s*(?:\+)?\s*(?:years?|yrs?|yr)\b", lower):
         try:
-            values.append(float(match.group(1)))
+            val = float(match.group(1))
+            if 0 <= val <= 45:
+                values.append(val)
         except ValueError:
             pass
-    return max(values) if values else 0.0
+
+    # Text like "Total Experience: 6.6 years". Keep this strict so "Experience 2018 - Present"
+    # does not get incorrectly decoded as 20 years.
+    for match in re.finditer(r"(?:total|overall|professional)\s+experience\s*[:\-]?\s*(\d{1,2}(?:\.\d+)?)(?!\d)", lower):
+        try:
+            val = float(match.group(1))
+            if 0 <= val <= 45:
+                values.append(val)
+        except ValueError:
+            pass
+    for match in re.finditer(r"\bexperience\s*[:\-]\s*(\d{1,2}(?:\.\d+)?)(?!\d)", lower):
+        try:
+            val = float(match.group(1))
+            if 0 <= val <= 45:
+                values.append(val)
+        except ValueError:
+            pass
+
+    # Date ranges in work history: 2018 - 2024, Mar 2019 to Present.
+    current_year = datetime.utcnow().year
+    for match in re.finditer(r"\b(19\d{2}|20\d{2})\b\s*(?:-|–|—|to|till|until)\s*(present|current|now|19\d{2}|20\d{2})\b", lower):
+        start_year = int(match.group(1))
+        end_raw = match.group(2)
+        end_year = current_year if end_raw in {"present", "current", "now"} else int(end_raw)
+        span = years_between(start_year, end_year)
+        if span:
+            values.append(span)
+
+    # Month-year ranges: Jan 2020 - Mar 2023.
+    month_year_ranges = re.findall(
+        r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+(19\d{2}|20\d{2})\s*(?:-|–|—|to)\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+)?(present|current|now|19\d{2}|20\d{2})",
+        lower,
+    )
+    for start_y, end_y_raw in month_year_ranges:
+        end_y = current_year if end_y_raw in {"present", "current", "now"} else int(end_y_raw)
+        span = years_between(int(start_y), end_y)
+        if span:
+            values.append(span)
+
+    # If no direct experience but multiple job years are present, infer timeline span conservatively.
+    years = sorted({int(y) for y in re.findall(r"\b(19\d{2}|20\d{2})\b", lower)})
+    if len(years) >= 2:
+        inferred = years_between(years[0], min(years[-1], current_year))
+        if inferred:
+            values.append(inferred)
+
+    if not values:
+        return 0.0
+    # Prefer explicit direct values; use the highest credible value, rounded to one decimal.
+    return round(max(values), 1)
+
+
+def extract_section(text: str, headings: List[str], max_chars: int = 1500) -> str:
+    pattern = r"(?is)(?:^|\n)\s*(?:" + "|".join(re.escape(h) for h in headings) + r")\s*[:\-]?\s*\n?(.*?)(?=\n\s*(?:summary|profile|objective|skills|technical skills|experience|employment|work history|education|certifications|projects|personal details|contact)\s*[:\-]?\s*\n|$)"
+    m = re.search(pattern, text)
+    return (m.group(1).strip()[:max_chars] if m else "")
 
 
 def extract_contact_and_name(text: str) -> Dict[str, str]:
-    email_match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", text)
-    phone_match = re.search(r"(?:\+?\d[\d\s().-]{7,}\d)", text)
-    lines = [l.strip() for l in text.splitlines() if l.strip()]
-    bad = {"resume", "curriculum vitae", "cv", "profile", "email", "phone", "mobile", "objective", "summary"}
+    cleaned_text = clean_extracted_text(text)
+    email_match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", cleaned_text)
+    phone_match = re.search(r"(?:\+?\d[\d\s().-]{7,}\d)", cleaned_text)
+    lines = [l.strip(" •|\t-") for l in cleaned_text.splitlines() if l.strip(" •|\t-")]
+
+    bad_fragments = {
+        "resume", "curriculum vitae", "cv", "profile", "email", "phone", "mobile", "objective", "summary",
+        "experience", "skills", "education", "linkedin", "github", "address", "contact", "professional"
+    }
     name = ""
-    for line in lines[:12]:
-        cleaned = re.sub(r"[^A-Za-z .'-]", "", line).strip()
-        words = cleaned.split()
-        if 2 <= len(words) <= 5 and not any(b in cleaned.lower() for b in bad):
-            name = " ".join(w.capitalize() if w.isupper() else w for w in words)
-            break
+
+    # Prefer explicit labels: Name: John Doe.
+    for line in lines[:20]:
+        m = re.search(r"\b(?:name|candidate name|full name)\s*[:\-]\s*([A-Za-z][A-Za-z .'-]{2,80})", line, flags=re.I)
+        if m:
+            candidate = canonicalize_name(m.group(1))
+            if 2 <= len(candidate.split()) <= 5:
+                name = candidate
+                break
+
+    # Otherwise use the first clean human-looking line near the top, avoiding contact and headings.
+    if not name:
+        for line in lines[:18]:
+            if "@" in line or re.search(r"https?://|www\.|linkedin|github|\+?\d[\d\s().-]{7,}\d", line, flags=re.I):
+                continue
+            cleaned = re.sub(r"[^A-Za-z .'-]", " ", line).strip()
+            cleaned = re.sub(r"\s+", " ", cleaned)
+            words = cleaned.split()
+            lower = cleaned.lower()
+            if not cleaned or any(b in lower for b in bad_fragments):
+                continue
+            if 2 <= len(words) <= 5 and all(len(w) > 1 or w.upper() in {"S", "R", "B", "K"} for w in words):
+                # Avoid lines that are clearly job titles.
+                if not re.search(r"\b(developer|engineer|manager|consultant|analyst|architect|administrator|specialist|lead|intern)\b", lower):
+                    name = canonicalize_name(cleaned)
+                    break
+
+    phone = phone_match.group(0).strip() if phone_match else ""
+    phone = re.sub(r"\s+", " ", phone)
     return {
         "full_name": name,
-        "email": email_match.group(0) if email_match else "",
-        "phone": phone_match.group(0).strip() if phone_match else "",
+        "email": email_match.group(0).lower() if email_match else "",
+        "phone": phone,
     }
 
 
@@ -1322,24 +1573,36 @@ def extract_text_from_file(path: str, filename: str) -> str:
     if ext in [".txt", ".md", ".csv"]:
         with open(path, "rb") as f:
             raw = f.read()
-        return raw.decode("utf-8", errors="ignore")
+        return clean_extracted_text(raw.decode("utf-8", errors="ignore"))
     if ext == ".pdf":
         try:
             from pypdf import PdfReader  # type: ignore
             reader = PdfReader(path)
-            return "\n".join(page.extract_text() or "" for page in reader.pages)
+            parts = []
+            for page in reader.pages:
+                parts.append(page.extract_text() or "")
+            return clean_extracted_text("\n".join(parts))
         except Exception as exc:
             return f"PDF text extraction unavailable. File name: {filename}. Error: {exc}"
     if ext == ".docx":
         try:
             from docx import Document  # type: ignore
             doc = Document(path)
-            return "\n".join(p.text for p in doc.paragraphs)
+            parts = []
+            for p in doc.paragraphs:
+                if p.text:
+                    parts.append(p.text)
+            for table in doc.tables:
+                for row in table.rows:
+                    vals = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                    if vals:
+                        parts.append(" | ".join(vals))
+            return clean_extracted_text("\n".join(parts))
         except Exception as exc:
             return f"DOCX text extraction unavailable. File name: {filename}. Error: {exc}"
     with open(path, "rb") as f:
         raw = f.read(250000)
-    return raw.decode("utf-8", errors="ignore")
+    return clean_extracted_text(raw.decode("utf-8", errors="ignore"))
 
 
 def build_standard_summary(name: str, skills: List[str], domains: List[str], exp: float, role_title: str, fit_score: int, fake_score: int) -> str:
@@ -3159,6 +3422,8 @@ def demand_candidate_shortlist(demand_id: int, user: Dict[str, Any] = Depends(ge
             "primary_skill": candidate.get("primary_skill"),
             "secondary_skills": candidate.get("secondary_skills"),
             "current_status": candidate.get("current_status"),
+            "total_experience": candidate.get("total_experience"),
+            "relevant_experience": candidate.get("relevant_experience"),
             "available_by_date": candidate.get("available_by_date"),
             "notice_period_days": candidate.get("notice_period_days"),
             "expected_rate": candidate.get("expected_rate"),
