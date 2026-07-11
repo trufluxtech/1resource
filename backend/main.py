@@ -37,7 +37,7 @@ from reportlab.platypus import Image as RLImage
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 APP_NAME = "1Resource"
-APP_VERSION = "Production 1.18"
+APP_VERSION = "Production 1.19"
 APP_ENV = os.environ.get("APP_ENV", "development").strip().lower()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.environ.get("DATA_DIR", os.path.join(BASE_DIR, "data"))

@@ -4,8 +4,8 @@ import brandLogo from './assets/truflux_logo.png';
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 const APP_NAME = '1Resource';
 const APP_SUBTITLE = 'by Truflux Technologies';
-const APP_VERSION = 'Production 1.18';
-const APP_FOOTER = '1Resource by Truflux Technologies | Version Production 1.18 | © 2026 Truflux Technologies. All rights reserved. | Internal Use Only';
+const APP_VERSION = 'Production 1.19';
+const APP_FOOTER = '1Resource by Truflux Technologies | Version Production 1.19 | © 2026 Truflux Technologies. All rights reserved. | Internal Use Only';
 
 const emptyCandidate = {
   full_name: '', email: '', phone: '', location: '', current_status: 'Available', availability_date: 'Immediate', available_by_date: '', notice_period_days: 0,
@@ -57,6 +57,39 @@ function Avatar({ user, photoUrl, size = 'normal' }) {
 
 function money(value) { return `₹${Number(value || 0).toLocaleString('en-IN')}`; }
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+function splitList(value) {
+  return String(value || '').split(/[,;|/]+/).map(x => x.trim()).filter(Boolean);
+}
+function topCounts(values, limit = 8) {
+  const counts = {};
+  values.filter(Boolean).forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, limit).map(([skill, count]) => ({ skill, count }));
+}
+function buildLiveDashboard(baseDashboard, candidates, demand) {
+  const allCandidates = Array.isArray(candidates) ? candidates : [];
+  const allDemand = Array.isArray(demand) ? demand : [];
+  const openStatuses = new Set(['Open', 'Hot', 'In Progress']);
+  const readyCandidates = allCandidates.filter(c => String(c.status || '').startsWith('A1') || String(c.status || '').startsWith('A2')).length;
+  const availableBench = allCandidates.filter(c => ['Available', 'Bench', 'Freelance'].includes(c.current_status)).length;
+  const openDemand = allDemand.filter(d => openStatuses.has(d.status)).length;
+  const candidateSkills = allCandidates.map(c => c.primary_skill || 'Unspecified');
+  const demandSkills = allDemand.flatMap(d => splitList(`${d.required_skills || ''},${d.role_title || ''}`));
+  return {
+    ...(baseDashboard || {}),
+    total_candidates: allCandidates.length || baseDashboard?.total_candidates || 0,
+    ready_candidates: readyCandidates || baseDashboard?.ready_candidates || 0,
+    available_bench: availableBench || baseDashboard?.available_bench || 0,
+    total_demand: allDemand.length || baseDashboard?.total_demand || 0,
+    open_demand: openDemand || baseDashboard?.open_demand || 0,
+    skills: allCandidates.length ? topCounts(candidateSkills, 8) : (baseDashboard?.skills || []),
+    demand_skills: allDemand.length ? topCounts(demandSkills, 8) : (baseDashboard?.demand_skills || []),
+    recent_candidates: allCandidates.length ? allCandidates.slice(0, 8) : (baseDashboard?.recent_candidates || []),
+    recent_demand: allDemand.length ? allDemand.slice(0, 8) : (baseDashboard?.recent_demand || []),
+    refreshed_at: baseDashboard?.refreshed_at || new Date().toISOString(),
+    live_refreshed_at: new Date().toISOString(),
+  };
+}
 function Input({ label, value, onChange, type = 'text', placeholder = '' }) { return <label>{label}<input type={type} value={value ?? ''} placeholder={placeholder} onChange={e => onChange(e.target.value)} /></label>; }
 function ComboInput({ label, value, onChange, options = [], placeholder = 'Select or type new value' }) {
   const listId = useMemo(() => `combo_${label.replace(/[^a-z0-9]/gi, '_')}_${Math.random().toString(36).slice(2)}`, [label]);
@@ -328,26 +361,27 @@ function Login({ onLogin }) {
   </div></div>;
 }
 
-function Dashboard({ dashboard, onExport, onRefresh, refreshing }) {
+function Dashboard({ dashboard, candidates, demand, onExport, onRefresh, refreshing }) {
+  const displayDashboard = useMemo(() => buildLiveDashboard(dashboard, candidates, demand), [dashboard, candidates, demand]);
   return <section className="pageBlock">
-    <div className="sectionHeader"><div><h2>Dashboard</h2><p>Resource supply, client demand, bench readiness, resume fit and fake-resume risk.</p><small>Last refreshed: {dashboard.refreshed_at || 'Not refreshed yet'} · DB: {dashboard.database || '-'}</small></div><div className="actions"><button onClick={onRefresh} disabled={refreshing}>{refreshing ? 'Refreshing...' : 'Refresh Dashboard'}</button><button onClick={onExport || (() => {})}>Export CSV</button></div></div>
+    <div className="sectionHeader"><div><h2>Dashboard</h2><p>Resource supply, client demand, bench readiness, resume fit and fake-resume risk.</p><small>Last refreshed: {displayDashboard.refreshed_at || 'Not refreshed yet'} · DB: {displayDashboard.database || '-'}</small></div><div className="actions"><button onClick={onRefresh} disabled={refreshing}>{refreshing ? 'Refreshing...' : 'Refresh Dashboard'}</button><button onClick={onExport || (() => {})}>Export CSV</button></div></div>
     <div className="statsGrid">
-      <StatCard label="Candidates" value={dashboard.total_candidates ?? 0} helper="Profiles in repository" />
-      <StatCard label="Ready Supply" value={dashboard.ready_candidates ?? 0} helper="A1 and A2 candidates" />
-      <StatCard label="Available Bench" value={dashboard.available_bench ?? 0} helper="Available, bench or freelance" />
-      <StatCard label="Open Demand" value={dashboard.open_demand ?? 0} helper={`${dashboard.total_demand ?? 0} total requests`} />
-      <StatCard label="Shortlisted" value={dashboard.shortlisted ?? 0} helper="Demand-candidate mappings" />
-      <StatCard label="ML Resume Avg" value={dashboard.average_ml_rating ?? 0} helper="Role-fit rating" />
-      <StatCard label="Fake Risk Avg" value={dashboard.average_fake_risk ?? 0} helper="Lower is better" />
-      <StatCard label="Manual Avg" value={dashboard.average_score ?? 0} helper="Screening assessment" />
+      <StatCard label="Candidates" value={displayDashboard.total_candidates ?? 0} helper="Profiles in repository" />
+      <StatCard label="Ready Supply" value={displayDashboard.ready_candidates ?? 0} helper="A1 and A2 candidates" />
+      <StatCard label="Available Bench" value={displayDashboard.available_bench ?? 0} helper="Available, bench or freelance" />
+      <StatCard label="Open Demand" value={displayDashboard.open_demand ?? 0} helper={`${displayDashboard.total_demand ?? 0} total requests`} />
+      <StatCard label="Shortlisted" value={displayDashboard.shortlisted ?? 0} helper="Demand-candidate mappings" />
+      <StatCard label="ML Resume Avg" value={displayDashboard.average_ml_rating ?? 0} helper="Role-fit rating" />
+      <StatCard label="Fake Risk Avg" value={displayDashboard.average_fake_risk ?? 0} helper="Lower is better" />
+      <StatCard label="Manual Avg" value={displayDashboard.average_score ?? 0} helper="Screening assessment" />
     </div>
     <div className="twoCol">
-      <div className="panel"><h3>Supply Skill Mix</h3>{(dashboard.skills || []).map(row => <div className="barRow" key={row.skill}><span>{row.skill || 'Unspecified'}</span><div><b style={{ width: `${Math.min(100, row.count * 14)}%` }} /></div><em>{row.count}</em></div>)}{(dashboard.skills || []).length === 0 && <p className="muted">No skills yet.</p>}</div>
-      <div className="panel"><h3>Demand Skill Mix</h3>{(dashboard.demand_skills || []).map(row => <div className="barRow" key={row.skill}><span>{row.skill}</span><div><b style={{ width: `${Math.min(100, row.count * 18)}%` }} /></div><em>{row.count}</em></div>)}{(dashboard.demand_skills || []).length === 0 && <p className="muted">No demand created yet.</p>}</div>
+      <div className="panel"><h3>Supply Skill Mix</h3>{(displayDashboard.skills || []).map(row => <div className="barRow" key={row.skill}><span>{row.skill || 'Unspecified'}</span><div><b style={{ width: `${Math.min(100, row.count * 14)}%` }} /></div><em>{row.count}</em></div>)}{(displayDashboard.skills || []).length === 0 && <p className="muted">No skills yet.</p>}</div>
+      <div className="panel"><h3>Demand Skill Mix</h3>{(displayDashboard.demand_skills || []).map(row => <div className="barRow" key={row.skill}><span>{row.skill}</span><div><b style={{ width: `${Math.min(100, row.count * 18)}%` }} /></div><em>{row.count}</em></div>)}{(displayDashboard.demand_skills || []).length === 0 && <p className="muted">No demand created yet.</p>}</div>
     </div>
     <div className="twoCol">
-      <div className="panel"><h3>Recent Candidates</h3>{(dashboard.recent_candidates || []).map(c => <div className="recentItem" key={c.id}><div><strong>{c.full_name}</strong><span>{c.candidate_code} · {c.primary_skill}</span><small>ML {c.ml_rating_score || 0}/100 · {c.fake_risk_level || 'No risk score'}</small></div><mark>{c.status}</mark></div>)}{(dashboard.recent_candidates || []).length === 0 && <p className="muted">No candidates yet.</p>}</div>
-      <div className="panel"><h3>Recent Demand</h3>{(dashboard.recent_demand || []).map(d => <div className="recentItem" key={d.id}><div><strong>{d.role_title}</strong><span>{d.client_name || 'Client'} · {d.project_name}</span><small>{d.demand_code}</small></div><mark>{d.priority} · {d.status}</mark></div>)}{(dashboard.recent_demand || []).length === 0 && <p className="muted">No demand requests yet.</p>}</div>
+      <div className="panel"><h3>Recent Candidates</h3>{(displayDashboard.recent_candidates || []).map(c => <div className="recentItem" key={c.id}><div><strong>{c.full_name}</strong><span>{c.candidate_code} · {c.primary_skill}</span><small>ML {c.ml_rating_score || 0}/100 · {c.fake_risk_level || 'No risk score'}</small></div><mark>{c.status}</mark></div>)}{(displayDashboard.recent_candidates || []).length === 0 && <p className="muted">No candidates yet.</p>}</div>
+      <div className="panel"><h3>Recent Demand</h3>{(displayDashboard.recent_demand || []).map(d => <div className="recentItem" key={d.id}><div><strong>{d.role_title}</strong><span>{d.client_name || 'Client'} · {d.project_name}</span><small>{d.demand_code}</small></div><mark>{d.priority} · {d.status}</mark></div>)}{(displayDashboard.recent_demand || []).length === 0 && <p className="muted">No demand requests yet.</p>}</div>
     </div>
   </section>;
 }
@@ -1179,6 +1213,12 @@ function App() {
   useEffect(() => { loadDashboard(); loadAnalytics(); loadDemand(); loadTrends(); loadMarketSignals(); loadCompanyProfile(); loadCurrentProfile(); loadUserPhoto(); }, [token]);
   useEffect(() => { loadCandidates(); }, [token, filters.q, filters.skill, filters.status, filters.availability]);
   useEffect(() => { loadDemand(); }, [token, demandFilters.q, demandFilters.skill, demandFilters.status]);
+  useEffect(() => {
+    if (!token || tab !== 'dashboard') return;
+    refreshWorkspace(false);
+    const timer = setInterval(() => refreshWorkspace(false), 5000);
+    return () => clearInterval(timer);
+  }, [token, tab, filters.q, filters.skill, filters.status, filters.availability, demandFilters.q, demandFilters.skill, demandFilters.status]);
   useEffect(() => { if (tab === 'dashboard') refreshWorkspace(false); if (tab === 'admin') { loadAdmin(); loadSecurity(); loadCompanyProfile(); } if (tab === 'outreach') loadOutreach(); if (tab === 'security') loadSecurity(); if (tab === 'links') loadLinks(); if (tab === 'intelligence') { loadAnalytics(); loadTrends(); loadMarketSignals(); } if (tab === 'demand') loadDemand(); }, [tab, token]);
   function onLogin(data) { setAuth(data); localStorage.setItem('truflux_auth', JSON.stringify(data)); }
   async function logout() { try { await api('/api/logout', { method: 'POST' }, token); } catch (_) {} if (userPhotoUrl) URL.revokeObjectURL(userPhotoUrl); setUserPhotoUrl(''); localStorage.removeItem('truflux_auth'); setAuth(null); }
@@ -1186,7 +1226,7 @@ function App() {
   async function deleteCandidate() { if (!selected || !confirm('Delete this candidate?')) return; await api(`/api/candidates/${selected.id}`, { method: 'DELETE' }, token); setSelected(null); await refreshAfterMutation('Candidate deleted and dashboard numbers refreshed'); }
   async function addAssessment(id, assessment) { await api(`/api/candidates/${id}/assessments`, { method: 'POST', body: JSON.stringify(assessment) }, token); await loadSelected(id); await loadCandidates(); await loadDashboard(); show('Assessment saved'); }
   async function uploadRoleResume(id, file, roleTitle, roleDefinition) { const data = new FormData(); data.append('file', file); data.append('role_title', roleTitle || 'Role-based Resume'); data.append('role_definition', roleDefinition || ''); const res = await api(`/api/candidates/${id}/resumes`, { method: 'POST', body: data }, token); await loadSelected(id); await loadCandidates(); await loadDashboard(); await loadAnalytics(); show(`Resume analyzed: Fit ${res.analysis.fit_score}/100, Risk ${res.analysis.fake_risk_score}/100`); }
-  async function saveDemand(form) { const method = form.id ? 'PUT' : 'POST'; const path = form.id ? `/api/demand/${form.id}` : '/api/demand'; const saved = await api(path, { method, body: JSON.stringify(form) }, token); setEditingDemand(null); await refreshAfterMutation('Demand saved and dashboard numbers refreshed'); await loadSelectedDemand(saved.id); }
+  async function saveDemand(form) { const method = form.id ? 'PUT' : 'POST'; const path = form.id ? `/api/demand/${form.id}` : '/api/demand'; const saved = await api(path, { method, body: JSON.stringify(form) }, token); setEditingDemand(null); await refreshAfterMutation('Demand saved and dashboard numbers refreshed'); await loadSelectedDemand(saved.id); await loadDashboard(); }
   async function deleteDemand() { if (!selectedDemand || !confirm('Delete this demand request?')) return; await api(`/api/demand/${selectedDemand.id}`, { method: 'DELETE' }, token); setSelectedDemand(null); await refreshAfterMutation('Demand deleted and dashboard numbers refreshed'); }
   async function shortlist(demandId, candidateId) { await api(`/api/demand/${demandId}/shortlist/${candidateId}`, { method: 'POST' }, token); if (selectedDemand?.id === demandId) await loadSelectedDemand(demandId); await refreshAfterMutation('Candidate shortlisted and dashboard numbers refreshed'); }
   async function candidateSuitability(candidateId) { return api(`/api/intelligence/candidate/${candidateId}/role-suitability`, {}, token); }
@@ -1242,7 +1282,7 @@ function App() {
   ];
   if (user.role === 'Admin' || user.role === 'Recruiter') nav.push(['links', '↗', 'Public Links']);
   if (user.role === 'Admin') { nav.push(['outreach', '✉', 'Outreach']); nav.push(['security', '盾', 'Security']); nav.push(['admin', '⚙', 'Admin']); }
-  return <div className={`appShell ${collapsed ? 'collapsed' : ''}`}><aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}><button className="logo logoButton" type="button" onClick={() => setTab('dashboard')} title="Go to homepage"><img src={brandLogo} alt="Truflux Technologies logo" className="logoImage" /><div><strong>{APP_NAME}</strong><small>{APP_SUBTITLE}</small></div></button><button className="collapseBtn" onClick={toggleMenu}>{collapsed ? '›' : '‹ Collapse'}</button><nav>{nav.map(([key, icon, label]) => <button key={key} title={label} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}><span>{icon}</span><em>{label}</em></button>)}</nav><div className="sideFooter"><strong>{user.full_name}</strong><span>{user.role}</span><span className="sideMeta">Version {APP_VERSION}</span></div></aside><main><header className="topbar"><div><h1>{APP_NAME}</h1><p>{APP_SUBTITLE} · Bench planning, demand capture, candidate screening, resume rating, fake-resume risk and shortlist matching.</p></div><div className="topbarMeta"><span className="pill">Version {APP_VERSION}</span><button className="userTopChip" onClick={() => setTab('profile')} title="Open profile"><Avatar user={currentProfile || user} photoUrl={userPhotoUrl} /><span>{(currentProfile || user)?.full_name || user?.username}</span></button><button className="logoutIcon" onClick={logout} title="Logout" aria-label="Logout">⎋</button></div></header>{tab === 'dashboard' && <Dashboard dashboard={dashboard} onExport={exportCsv} onRefresh={() => refreshWorkspace(true)} refreshing={refreshingDashboard} />}{tab === 'profile' && <MyProfile user={currentProfile || user} photoUrl={userPhotoUrl} onSave={saveMyProfile} onUploadPhoto={uploadMyPhoto} />}{tab === 'demand' && <DemandPage demand={demand} filters={demandFilters} setFilters={setDemandFilters} onCreate={() => setEditingDemand({ ...emptyDemand })} onSelect={loadSelectedDemand} onEdit={(row) => { setSelectedDemand(null); setEditingDemand(row); }} />}{tab === 'candidates' && <Candidates candidates={candidates} filters={filters} setFilters={setFilters} onCreate={() => setEditing(emptyCandidate)} onSelect={loadSelected} onDownloadStandard={downloadStandardResume} />}{tab === 'intelligence' && <MLAnalytics analytics={analytics} trends={trends} marketSignals={marketSignals} candidates={candidates} demand={demand} onRefresh={loadAnalytics} onRefreshTrends={loadTrends} onRefreshMarket={loadMarketSignals} onCandidateSuitability={candidateSuitability} onRoleCandidates={roleCandidates} onShortlist={shortlist} />}{tab === 'links' && <PublicLinks links={links} candidates={candidates} demand={demand} onCreateLink={createLink} onRevokeLink={revokeLink} onRefresh={loadLinks} />}{tab === 'outreach' && <CustomerOutreach clients={outreachClients} appUsers={outreachUsers} logs={outreachLogs} smtpStatus={smtpStatus} onRefresh={loadOutreach} onSaveClient={savePotentialClient} onDeleteClient={deletePotentialClient} onSend={sendOutreachEmail} onTestSmtp={testSmtpConnection} />}{tab === 'security' && <SecurityPanel security={security} onRefresh={loadSecurity} onChangePassword={changePassword} />}{tab === 'admin' && <><CompanyProfile profile={companyProfile} onSave={saveCompanyProfile} onUploadLogo={uploadCompanyLogo} /><Users users={users} onCreateUser={createUser} onUpdateUser={updateUser} onToggleUser={toggleUser} onUnlockUser={unlockUser} onResetPassword={resetUserPassword} onCreateDemo={createDemo} /><Logs logs={logs} /></>}<FooterNote /></main>{editing && <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>{editing.id ? 'Edit Candidate' : 'Add Candidate'}</h2><button onClick={() => setEditing(null)}>×</button></div><CandidateForm initial={editing} onCancel={() => setEditing(null)} onSave={saveCandidate} /></div></div>}{editingDemand && <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>{editingDemand.id ? 'Edit Demand' : 'Add Demand'}</h2><button onClick={() => setEditingDemand(null)}>×</button></div><DemandForm initial={editingDemand} demandOptions={demand} onCancel={() => setEditingDemand(null)} onSave={saveDemand} /></div></div>}{selected && !editing && <CandidateDetail candidate={selected} user={user} onClose={() => setSelected(null)} onEdit={() => setEditing(selected)} onDelete={deleteCandidate} onAddAssessment={addAssessment} onRoleResumeUpload={uploadRoleResume} onDownload={downloadResume} onDownloadVersion={downloadVersion} onDownloadStandard={downloadStandardResume} />}{selectedDemand && !editingDemand && <DemandDetail demand={selectedDemand} matches={demandMatches} onClose={() => setSelectedDemand(null)} onEdit={() => setEditingDemand(selectedDemand)} onDelete={deleteDemand} onShortlist={shortlist} onRefreshMatches={() => loadSelectedDemand(selectedDemand.id)} onGenerateMcq={() => generateMcq(selectedDemand.id)} />}{toast && <div className="toast">{toast}</div>}</div>;
+  return <div className={`appShell ${collapsed ? 'collapsed' : ''}`}><aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}><button className="logo logoButton" type="button" onClick={() => setTab('dashboard')} title="Go to homepage"><img src={brandLogo} alt="Truflux Technologies logo" className="logoImage" /><div><strong>{APP_NAME}</strong><small>{APP_SUBTITLE}</small></div></button><button className="collapseBtn" onClick={toggleMenu}>{collapsed ? '›' : '‹ Collapse'}</button><nav>{nav.map(([key, icon, label]) => <button key={key} title={label} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}><span>{icon}</span><em>{label}</em></button>)}</nav><div className="sideFooter"><strong>{user.full_name}</strong><span>{user.role}</span><span className="sideMeta">Version {APP_VERSION}</span></div></aside><main><header className="topbar"><div><h1>{APP_NAME}</h1><p>{APP_SUBTITLE} · Bench planning, demand capture, candidate screening, resume rating, fake-resume risk and shortlist matching.</p></div><div className="topbarMeta"><span className="pill">Version {APP_VERSION}</span><button className="userTopChip" onClick={() => setTab('profile')} title="Open profile"><Avatar user={currentProfile || user} photoUrl={userPhotoUrl} /><span>{(currentProfile || user)?.full_name || user?.username}</span></button><button className="logoutIcon" onClick={logout} title="Logout" aria-label="Logout">⎋</button></div></header>{tab === 'dashboard' && <Dashboard dashboard={dashboard} candidates={candidates} demand={demand} onExport={exportCsv} onRefresh={() => refreshWorkspace(true)} refreshing={refreshingDashboard} />}{tab === 'profile' && <MyProfile user={currentProfile || user} photoUrl={userPhotoUrl} onSave={saveMyProfile} onUploadPhoto={uploadMyPhoto} />}{tab === 'demand' && <DemandPage demand={demand} filters={demandFilters} setFilters={setDemandFilters} onCreate={() => setEditingDemand({ ...emptyDemand })} onSelect={loadSelectedDemand} onEdit={(row) => { setSelectedDemand(null); setEditingDemand(row); }} />}{tab === 'candidates' && <Candidates candidates={candidates} filters={filters} setFilters={setFilters} onCreate={() => setEditing(emptyCandidate)} onSelect={loadSelected} onDownloadStandard={downloadStandardResume} />}{tab === 'intelligence' && <MLAnalytics analytics={analytics} trends={trends} marketSignals={marketSignals} candidates={candidates} demand={demand} onRefresh={loadAnalytics} onRefreshTrends={loadTrends} onRefreshMarket={loadMarketSignals} onCandidateSuitability={candidateSuitability} onRoleCandidates={roleCandidates} onShortlist={shortlist} />}{tab === 'links' && <PublicLinks links={links} candidates={candidates} demand={demand} onCreateLink={createLink} onRevokeLink={revokeLink} onRefresh={loadLinks} />}{tab === 'outreach' && <CustomerOutreach clients={outreachClients} appUsers={outreachUsers} logs={outreachLogs} smtpStatus={smtpStatus} onRefresh={loadOutreach} onSaveClient={savePotentialClient} onDeleteClient={deletePotentialClient} onSend={sendOutreachEmail} onTestSmtp={testSmtpConnection} />}{tab === 'security' && <SecurityPanel security={security} onRefresh={loadSecurity} onChangePassword={changePassword} />}{tab === 'admin' && <><CompanyProfile profile={companyProfile} onSave={saveCompanyProfile} onUploadLogo={uploadCompanyLogo} /><Users users={users} onCreateUser={createUser} onUpdateUser={updateUser} onToggleUser={toggleUser} onUnlockUser={unlockUser} onResetPassword={resetUserPassword} onCreateDemo={createDemo} /><Logs logs={logs} /></>}<FooterNote /></main>{editing && <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>{editing.id ? 'Edit Candidate' : 'Add Candidate'}</h2><button onClick={() => setEditing(null)}>×</button></div><CandidateForm initial={editing} onCancel={() => setEditing(null)} onSave={saveCandidate} /></div></div>}{editingDemand && <div className="modalBackdrop"><div className="modal"><div className="modalHeader"><h2>{editingDemand.id ? 'Edit Demand' : 'Add Demand'}</h2><button onClick={() => setEditingDemand(null)}>×</button></div><DemandForm initial={editingDemand} demandOptions={demand} onCancel={() => setEditingDemand(null)} onSave={saveDemand} /></div></div>}{selected && !editing && <CandidateDetail candidate={selected} user={user} onClose={() => setSelected(null)} onEdit={() => setEditing(selected)} onDelete={deleteCandidate} onAddAssessment={addAssessment} onRoleResumeUpload={uploadRoleResume} onDownload={downloadResume} onDownloadVersion={downloadVersion} onDownloadStandard={downloadStandardResume} />}{selectedDemand && !editingDemand && <DemandDetail demand={selectedDemand} matches={demandMatches} onClose={() => setSelectedDemand(null)} onEdit={() => setEditingDemand(selectedDemand)} onDelete={deleteDemand} onShortlist={shortlist} onRefreshMatches={() => loadSelectedDemand(selectedDemand.id)} onGenerateMcq={() => generateMcq(selectedDemand.id)} />}{toast && <div className="toast">{toast}</div>}</div>;
 }
 
 export default function WrappedApp() { return <AppErrorBoundary><App /></AppErrorBoundary>; }

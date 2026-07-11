@@ -476,3 +476,12 @@ EMAIL_FROM_NAME=1Resource Team
 - Dashboard numbers refresh when returning to Dashboard.
 - Candidate/demand save, delete and shortlist actions now perform a stronger post-mutation dashboard refresh.
 - Dashboard refresh uses cache-busting and a short second refresh after mutations to make updated counts visible.
+
+
+## Production 1.19 Dashboard Live Refresh
+
+- Dashboard now refreshes every 5 seconds while the Dashboard tab is open.
+- Dashboard refreshes immediately when the user returns to the Dashboard tab.
+- Dashboard now also calculates visible live counts from the loaded Candidate and Demand lists.
+- This makes Total Candidates, Open Demand, Total Demand and recent lists update visibly even if the browser/API cache delays the summary response.
+- Demand save performs an additional dashboard refresh after the selected demand reloads.

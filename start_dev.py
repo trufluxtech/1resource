@@ -348,7 +348,7 @@ def wait_for_backend_health(port: int, seconds: int = 20) -> bool:
 
 
 def main():
-    print("1Resource Production 1.18 - Local/PostgreSQL Startup")
+    print("1Resource Production 1.19 - Local/PostgreSQL Startup")
     print(f"Project root: {ROOT}")
 
     backend_port = int(os.environ.get("BACKEND_PORT", find_free_port(8000)))
