@@ -432,3 +432,11 @@ MAILJET_SECRET_KEY=your-mailjet-secret-key
 EMAIL_FROM=your-verified-sender@yourdomain.com
 EMAIL_FROM_NAME=1Resource Team
 ```
+
+
+## Production 1.14 Client and Project Combobox
+
+- Demand creation now uses combobox fields for Client Name and Project Name.
+- Users can select from previously entered clients/projects or type a new value.
+- Project dropdown is filtered by the selected client when possible.
+- Existing edit behavior is preserved: client/project details remain read-only during demand edit.
