@@ -228,3 +228,13 @@ EMAIL_FROM_NAME=1Resource Team
 - Users can select from previously entered clients/projects or type a new value.
 - Project dropdown is filtered by the selected client when possible.
 - Existing edit behavior is preserved: client/project details remain read-only during demand edit.
+
+
+## Production 1.15 Dashboard Refresh Fix
+
+- Dashboard API now sends no-cache headers.
+- Dashboard API returns `refreshed_at` and active database engine.
+- Frontend dashboard requests use no-store and cache-busting.
+- Added a manual `Refresh Dashboard` button.
+- Candidate/demand save, delete, shortlist and demo-data actions now refresh dashboard, demand list, candidate list, analytics and trends together.
+- Toast messages confirm dashboard refresh after key updates.

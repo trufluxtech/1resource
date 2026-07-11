@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote_plus
 from xml.sax.saxutils import escape
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -37,7 +37,7 @@ from reportlab.platypus import Image as RLImage
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 APP_NAME = "1Resource"
-APP_VERSION = "Production 1.14"
+APP_VERSION = "Production 1.15"
 APP_ENV = os.environ.get("APP_ENV", "development").strip().lower()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.environ.get("DATA_DIR", os.path.join(BASE_DIR, "data"))
@@ -2511,7 +2511,9 @@ def unlock_user(user_id: int, user: Dict[str, Any] = Depends(require_roles("Admi
 
 
 @app.get("/api/dashboard")
-def dashboard(user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+def dashboard(response: Response, user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
     with get_db() as conn:
         total = conn.execute("SELECT COUNT(*) AS c FROM candidates").fetchone()["c"]
         ready = conn.execute("SELECT COUNT(*) AS c FROM candidates WHERE status LIKE 'A1%' OR status LIKE 'A2%'").fetchone()["c"]
@@ -2546,6 +2548,8 @@ def dashboard(user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any
         "statuses": [dict_row(r) for r in status_rows],
         "recent_candidates": [enrich_fake_risk_rag(dict_row(r)) for r in recent],
         "recent_demand": [dict_row(r) for r in recent_demand],
+        "refreshed_at": now_iso(),
+        "database": "postgresql" if USE_POSTGRES else "sqlite",
     }
 
 
